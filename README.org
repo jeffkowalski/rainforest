@@ -1,3 +1,5 @@
+rainforest - read power usage data from rainforest eagle and record in influxdb
+
 * Installation
 #+BEGIN_SRC shell
 bundle install
