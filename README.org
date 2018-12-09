@@ -1,0 +1,26 @@
+* Installation
+#+BEGIN_SRC shell
+bundle install
+#+END_SRC
+
+* Configuration
+Build a ~/.credentials/rainforest.yaml file with contents similar to
+
+#+BEGIN_EXAMPLE
+---
+:username: 'your username, typically the same as the cloud id, e.g 012345'
+:password: 'your password, typically the same as the install code, e.g. 0123456789abcdef'
+:ip_address: 'ip4 address of device, e.g. 192.168.1.10'
+:mac_id: 'mac address of device, in hexadecimal e.g. 0xdeadbeefc0def00d'
+#+END_EXAMPLE
+
+* Running
+Usage:
+  rainforest.rb record-status
+
+Options:
+      [--log], [--no-log]          # log output to ~/.log/.nest.log
+                                   # Default: true
+  -v, [--verbose], [--no-verbose]  # increase verbosity
+
+Record current usage data to database

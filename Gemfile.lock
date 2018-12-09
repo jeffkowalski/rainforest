@@ -1,0 +1,47 @@
+GEM
+  remote: https://rubygems.org/
+  specs:
+    chronic (0.10.2)
+    coderay (1.1.2)
+    domain_name (0.5.20180417)
+      unf (>= 0.0.5, < 1.0.0)
+    holidays (6.6.0)
+    http-cookie (1.0.3)
+      domain_name (~> 0.5)
+    influxdb (0.6.1)
+    method_source (0.9.0)
+    mime-types (3.2.2)
+      mime-types-data (~> 3.2015)
+    mime-types-data (3.2018.0812)
+    netrc (0.11.0)
+    pry (0.11.3)
+      coderay (~> 1.1.0)
+      method_source (~> 0.9.0)
+    pry-doc (0.13.4)
+      pry (~> 0.11)
+      yard (~> 0.9.11)
+    rest-client (2.0.2)
+      http-cookie (>= 1.0.2, < 2.0)
+      mime-types (>= 1.16, < 4.0)
+      netrc (~> 0.8)
+    thor (0.20.0)
+    unf (0.1.4)
+      unf_ext
+    unf_ext (0.0.7.5)
+    yard (0.9.16)
+
+PLATFORMS
+  ruby
+
+DEPENDENCIES
+  chronic
+  holidays
+  influxdb
+  method_source (>= 0.8.2)
+  pry
+  pry-doc (>= 0.6.0)
+  rest-client
+  thor
+
+BUNDLED WITH
+   1.16.5
