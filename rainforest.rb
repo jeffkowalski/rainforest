@@ -1,4 +1,5 @@
 #!/usr/bin/env ruby
+# frozen_string_literal: true
 
 require 'date'
 require 'thor'
@@ -17,7 +18,7 @@ class Date
   def weekend_or_holiday?
     itself.saturday? ||
       itself.sunday? ||
-      !Holidays.on(itself, :federal_reserve).empty?
+      !Holidays.on(itself, :federalreserve).empty?
   end
 end
 
@@ -51,122 +52,126 @@ class Rainforest < Thor
   def record_status
     setup_logger
 
-    credentials = YAML.load_file CREDENTIALS_PATH
-    response = RestClient.post "http://#{credentials[:username]}:#{credentials[:password]}@#{credentials[:ip_address]}/cgi-bin/cgi_manager",
-                               "<LocalCommand><Name>get_usage_data</Name><MacId>#{credentials[:mac_id]}</MacId></LocalCommand>"
-    @logger.info response
-    usage = JSON.parse response
+    begin
+      credentials = YAML.load_file CREDENTIALS_PATH
+      response = RestClient.post "http://#{credentials[:username]}:#{credentials[:password]}@#{credentials[:ip_address]}/cgi-bin/cgi_manager",
+                                 "<LocalCommand><Name>get_usage_data</Name><MacId>#{credentials[:mac_id]}</MacId></LocalCommand>"
+      @logger.info response
+      usage = JSON.parse response
 
-    influxdb = InfluxDB::Client.new 'rainforest'
+      influxdb = InfluxDB::Client.new 'rainforest'
 
-    # record recent demand
-    data = {
-      values: { value: usage['demand'].to_f },
-      timestamp: usage['demand_timestamp'].to_i - Time.now.utc_offset
-    }
-    influxdb.write_point('demand', data)
+      # record recent demand
+      data = {
+        values: { value: usage['demand'].to_f },
+        timestamp: usage['demand_timestamp'].to_i - Time.now.utc_offset
+      }
+      influxdb.write_point('demand', data)
 
-    # calculate and record current and next time-of-use phases
-    today = Date.today
-    yesterday = today - 1
-    tomorrow = today + 1
-    hour = Time.now.hour
+      # calculate and record current and next time-of-use phases
+      today = Date.today
+      yesterday = today - 1
+      tomorrow = today + 1
+      hour = Time.now.hour
 
-    if today.weekend_or_holiday?
-      # weekend
-      if hour < 15 # before 3pm
-        # [:off_peak, "3pm", :peak]
-        start = if yesterday.weekend_or_holiday?
-                  'yesterday 7pm'
-                else
-                  'yesterday 11pm'
-                end
-        phase = 'off_peak'
-        finish = '3pm'
-        next_phase = 'peak'
-      elsif hour < 19 # from 3pm to 7pm
-        # [:peak, "7pm", :off_peak]
-        start = '3pm'
-        phase = 'peak'
-        finish = '7pm'
-        next_phase = 'off_peak'
-      else # 7pm afterward
-        start = '7pm'
-        phase = 'off_peak'
-        if tomorrow.weekend_or_holiday?
-          # [:off_peak, "tomorrow 3pm", :peak]
-          finish = 'tomorrow 3pm'
+      if today.weekend_or_holiday?
+        # weekend
+        if hour < 15 # before 3pm
+          # [:off_peak, "3pm", :peak]
+          start = if yesterday.weekend_or_holiday?
+                    'yesterday 7pm'
+                  else
+                    'yesterday 11pm'
+                  end
+          phase = 'off_peak'
+          finish = '3pm'
           next_phase = 'peak'
-        else
-          # [:off_peak, "tomorrow 7am", :partial_peak]
-          finish = 'tomorrow 7am'
+        elsif hour < 19 # from 3pm to 7pm
+          # [:peak, "7pm", :off_peak]
+          start = '3pm'
+          phase = 'peak'
+          finish = '7pm'
+          next_phase = 'off_peak'
+        else # 7pm afterward
+          start = '7pm'
+          phase = 'off_peak'
+          if tomorrow.weekend_or_holiday?
+            # [:off_peak, "tomorrow 3pm", :peak]
+            finish = 'tomorrow 3pm'
+            next_phase = 'peak'
+          else
+            # [:off_peak, "tomorrow 7am", :partial_peak]
+            finish = 'tomorrow 7am'
+            next_phase = 'partial_peak'
+          end
+        end
+      else
+        # today is not a weekend or holiday
+        if hour < 7 # before 7am
+          # [:off_peak, "7am", :partial_peak]
+          start = if yesterday.weekend_or_holiday?
+                    'yesterday 7pm'
+                  else
+                    'yesterday 11pm'
+                  end
+          phase = 'off_peak'
+          finish = '7am'
           next_phase = 'partial_peak'
+        elsif hour < 14 # from 7am to 2pm
+          # [:partial_peak, "2pm", :peak]
+          start = '7am'
+          phase = 'partial_peak'
+          finish = '2pm'
+          next_phase = 'peak'
+        elsif hour < 21 # from 2pm to 9pm
+          # [:peak, "9pm", :partial_peak]
+          start = '2pm'
+          phase = 'peak'
+          finish = '9pm'
+          next_phase = 'partial_peak'
+        elsif hour < 23 # from 9pm to 11pm
+          # [:partial_peak, "11pm", :off_peak]
+          start = '9pm'
+          phase = 'partial_peak'
+          finish = '11pm'
+          next_phase = 'off_peak'
+        else # 11pm afterward
+          start = '11pm'
+          phase = 'off_peak'
+          if tomorrow.weekend_or_holiday?
+            # [:off_peak, "tomorrow 3pm", :peak]
+            finish = 'tomorrow 3pm'
+            next_phase = 'peak'
+          else
+            # [:off_peak, "tomorrow 7am", :partial_peak]
+            finish = 'tomorrow 7am'
+            next_phase = 'partial_peak'
+          end
         end
       end
-    else
-      # today is not a weekend or holiday
-      if hour < 7 # before 7am
-        # [:off_peak, "7am", :partial_peak]
-        start = if yesterday.weekend_or_holiday?
-                  'yesterday 7pm'
-                else
-                  'yesterday 11pm'
-                end
-        phase = 'off_peak'
-        finish = '7am'
-        next_phase = 'partial_peak'
-      elsif hour < 14 # from 7am to 2pm
-        # [:partial_peak, "2pm", :peak]
-        start = '7am'
-        phase = 'partial_peak'
-        finish = '2pm'
-        next_phase = 'peak'
-      elsif hour < 21 # from 2pm to 9pm
-        # [:peak, "9pm", :partial_peak]
-        start = '2pm'
-        phase = 'peak'
-        finish = '9pm'
-        next_phase = 'partial_peak'
-      elsif hour < 23 # from 9pm to 11pm
-        # [:partial_peak, "11pm", :off_peak]
-        start = '9pm'
-        phase = 'partial_peak'
-        finish = '11pm'
-        next_phase = 'off_peak'
-      else # 11pm afterward
-        start = '11pm'
-        phase = 'off_peak'
-        if tomorrow.weekend_or_holiday?
-          # [:off_peak, "tomorrow 3pm", :peak]
-          finish = 'tomorrow 3pm'
-          next_phase = 'peak'
-        else
-          # [:off_peak, "tomorrow 7am", :partial_peak]
-          finish = 'tomorrow 7am'
-          next_phase = 'partial_peak'
-        end
-      end
+
+      @logger.info "start: #{start}, #{phase}, finish: #{finish}, #{next_phase}"
+
+      # data = {
+      #   values: { value: true },
+      #   timestamp: Chronic.parse(start).utc.to_i
+      # }
+      # influxdb.write_point(phase, data)
+
+      data = {
+        values: { value: false },
+        timestamp: Chronic.parse(finish).utc.to_i
+      }
+      influxdb.write_point(phase, data) unless options[:dry_run]
+
+      data = {
+        values: { value: true },
+        timestamp: Chronic.parse(finish).utc.to_i
+      }
+      influxdb.write_point(next_phase, data) unless options[:dry_run]
+    rescue StandardError => e
+      @logger.error e
     end
-
-    @logger.info "start: #{start}, #{phase}, finish: #{finish}, #{next_phase}"
-
-    # data = {
-    #   values: { value: true },
-    #   timestamp: Chronic.parse(start).utc.to_i
-    # }
-    # influxdb.write_point(phase, data)
-
-    data = {
-      values: { value: false },
-      timestamp: Chronic.parse(finish).utc.to_i
-    }
-    influxdb.write_point(phase, data)
-
-    data = {
-      values: { value: true },
-      timestamp: Chronic.parse(finish).utc.to_i
-    }
-    influxdb.write_point(next_phase, data)
   end
 end
 
