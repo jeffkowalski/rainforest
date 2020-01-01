@@ -49,7 +49,7 @@ class Rainforest < Thor
   class_option :verbose, type: :boolean, aliases: '-v', desc: 'increase verbosity'
 
   desc 'record-status', 'record the current usage data to database'
-  method _option :dry_run, type: :boolean, aliases: '-d', desc: 'do not write to database'
+  method_option :dry_run, type: :boolean, aliases: '-d', desc: 'do not write to database'
   def record_status
     setup_logger
 
