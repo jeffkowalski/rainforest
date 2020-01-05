@@ -4,7 +4,7 @@ source 'https://rubygems.org'
 
 gem 'chronic'
 gem 'holidays'
-gem 'influxdb'
+gem 'influxdb', git: 'https://github.com/jeffkowalski/influxdb-ruby.git'
 gem 'rest-client'
 gem 'thor'
 
