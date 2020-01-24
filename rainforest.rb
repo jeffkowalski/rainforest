@@ -67,7 +67,7 @@ class Rainforest < Thor
         values: { value: usage['demand'].to_f },
         timestamp: usage['demand_timestamp'].to_i - Time.now.utc_offset
       }
-      influxdb.write_point('demand', data)
+      influxdb.write_point('demand', data) unless options[:dry_run]
 
       # calculate and record current and next time-of-use phases
       today = Date.today
