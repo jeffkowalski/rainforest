@@ -22,6 +22,8 @@ class Date
   end
 end
 
+class RequiredFieldError < StandardError; end
+
 class Rainforest < Thor
   no_commands do
     def redirect_output
@@ -57,8 +59,10 @@ class Rainforest < Thor
       credentials = YAML.load_file CREDENTIALS_PATH
       response = RestClient.post "http://#{credentials[:username]}:#{credentials[:password]}@#{credentials[:ip_address]}/cgi-bin/cgi_manager",
                                  "<LocalCommand><Name>get_usage_data</Name><MacId>#{credentials[:mac_id]}</MacId></LocalCommand>"
-      @logger.info response
+      @logger.info response.chomp
       usage = JSON.parse response
+
+      raise RequiredFieldError unless usage.key? 'demand'
 
       influxdb = InfluxDB::Client.new 'rainforest'
 
