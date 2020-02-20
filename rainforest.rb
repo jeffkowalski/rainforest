@@ -50,6 +50,27 @@ class Rainforest < Thor
   class_option :log,     type: :boolean, default: true, desc: "log output to #{LOGFILE}"
   class_option :verbose, type: :boolean, aliases: '-v', desc: 'increase verbosity'
 
+  desc 'list-devices', 'list all devices known to gateway'
+  def list_devices
+    credentials = YAML.load_file CREDENTIALS_PATH
+
+    response = RestClient.post "http://#{credentials[:username]}:#{credentials[:password]}@#{credentials[:ip_address]}/cgi-bin/post_manager",
+                               '<Command><Name>device_list</Name></Command>'
+    p response.body
+  end
+
+  desc 'list-variables', 'list all variables on device'
+  def list_variables
+    credentials = YAML.load_file CREDENTIALS_PATH
+
+    response = RestClient.post "http://#{credentials[:username]}:#{credentials[:password]}@#{credentials[:ip_address]}/cgi-bin/post_manager",
+                               '<Command>' \
+                               "  <Name>device_query</Name><DeviceDetails><HardwareAddress>#{credentials[:mac_id]}</HardwareAddress></DeviceDetails>" \
+                               '  <Components><All>Y</All></Components>' \
+                               '</Command>'
+    pp response.body
+  end
+
   desc 'record-status', 'record the current usage data to database'
   method_option :dry_run, type: :boolean, aliases: '-d', desc: 'do not write to database'
   def record_status
@@ -57,20 +78,28 @@ class Rainforest < Thor
 
     begin
       credentials = YAML.load_file CREDENTIALS_PATH
-      response = RestClient.post "http://#{credentials[:username]}:#{credentials[:password]}@#{credentials[:ip_address]}/cgi-bin/cgi_manager",
-                                 "<LocalCommand><Name>get_usage_data</Name><MacId>#{credentials[:mac_id]}</MacId></LocalCommand>"
-      @logger.info response.chomp
-      usage = JSON.parse response
 
-      raise RequiredFieldError unless usage.key? 'demand'
+      response = RestClient.post "http://#{credentials[:username]}:#{credentials[:password]}@#{credentials[:ip_address]}/cgi-bin/post_manager",
+                                 '<Command>' \
+                                 "  <Name>device_query</Name><DeviceDetails><HardwareAddress>#{credentials[:mac_id]}</HardwareAddress></DeviceDetails>" \
+                                 '  <Components><Component><Name>Main</Name><Variables><Variable><Name>zigbee:InstantaneousDemand</Name></Variable></Variables></Component></Components>' \
+                                 '</Command>'
+      @logger.info response
+      demand_timestamp = response.match %r{<LastContact>(0x[0-9A-Fa-f]+)</LastContact>}
+      demand = response.match %r{<Value>([-.\d]+)</Value>}
+      raise RequiredFieldError unless demand && demand_timestamp
+
+      demand_timestamp = demand_timestamp[1].hex
+      demand = demand[1].to_f
 
       influxdb = InfluxDB::Client.new 'rainforest'
 
       # record recent demand
       data = {
-        values: { value: usage['demand'].to_f },
-        timestamp: usage['demand_timestamp'].to_i - Time.now.utc_offset
+        values: { value: demand },
+        timestamp: demand_timestamp
       }
+      @logger.debug data
       influxdb.write_point('demand', data) unless options[:dry_run]
 
       # calculate and record current and next time-of-use phases
