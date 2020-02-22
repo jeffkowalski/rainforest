@@ -5,6 +5,7 @@ source 'https://rubygems.org'
 gem 'chronic'
 gem 'holidays'
 gem 'influxdb', git: 'https://github.com/jeffkowalski/influxdb-ruby.git'
+gem 'nokogiri'
 gem 'rest-client'
 gem 'thor'
 

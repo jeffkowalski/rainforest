@@ -10,9 +10,25 @@ require 'json'
 require 'influxdb'
 require 'holidays'
 require 'chronic'
+require 'nokogiri'
 
 LOGFILE = File.join(Dir.home, '.log', 'rainforest.log')
 CREDENTIALS_PATH = File.join(Dir.home, '.credentials', 'rainforest.yaml')
+
+module Kernel
+  def with_rescue(exceptions, logger, retries: 5)
+    try = 0
+    begin
+      yield try
+    rescue *exceptions => e
+      try += 1
+      raise if try > retries
+
+      logger.info "caught error #{e.class}, retrying (#{try}/#{retries})..."
+      retry
+    end
+  end
+end
 
 class Date
   def weekend_or_holiday?
@@ -79,18 +95,18 @@ class Rainforest < Thor
     begin
       credentials = YAML.load_file CREDENTIALS_PATH
 
-      response = RestClient.post "http://#{credentials[:username]}:#{credentials[:password]}@#{credentials[:ip_address]}/cgi-bin/post_manager",
-                                 '<Command>' \
-                                 "  <Name>device_query</Name><DeviceDetails><HardwareAddress>#{credentials[:mac_id]}</HardwareAddress></DeviceDetails>" \
-                                 '  <Components><Component><Name>Main</Name><Variables><Variable><Name>zigbee:InstantaneousDemand</Name></Variable></Variables></Component></Components>' \
-                                 '</Command>'
+      response = with_rescue([SocketError], @logger) do |_try|
+        RestClient.post "http://#{credentials[:username]}:#{credentials[:password]}@#{credentials[:ip_address]}/cgi-bin/post_manager",
+                        '<Command>' \
+                        "  <Name>device_query</Name><DeviceDetails><HardwareAddress>#{credentials[:mac_id]}</HardwareAddress></DeviceDetails>" \
+                        '  <Components><All>Y</All></Components>' \
+                        '</Command>'
+      end
       @logger.info response
-      demand_timestamp = response.match %r{<LastContact>(0x[0-9A-Fa-f]+)</LastContact>}
-      demand = response.match %r{<Value>([-.\d]+)</Value>}
-      raise RequiredFieldError unless demand && demand_timestamp
-
-      demand_timestamp = demand_timestamp[1].hex
-      demand = demand[1].to_f
+      doc = Nokogiri.XML response
+      demand_timestamp = (doc.at '//Device/DeviceDetails/LastContact')&.content&.hex
+      demand = (doc.at '//Device/Components/Component/Variables/Variable//Name[contains(text(), "zigbee:InstantaneousDemand")]/following-sibling::Value')&.content&.to_f
+      raise RequiredFieldError if demand.nil? || demand_timestamp.nil?
 
       influxdb = InfluxDB::Client.new 'rainforest'
 
