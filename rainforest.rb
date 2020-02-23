@@ -95,7 +95,7 @@ class Rainforest < Thor
     begin
       credentials = YAML.load_file CREDENTIALS_PATH
 
-      response = with_rescue([SocketError], @logger) do |_try|
+      response = with_rescue([RestClient::ServiceUnavailable, SocketError], @logger) do |_try|
         RestClient.post "http://#{credentials[:username]}:#{credentials[:password]}@#{credentials[:ip_address]}/cgi-bin/post_manager",
                         '<Command>' \
                         "  <Name>device_query</Name><DeviceDetails><HardwareAddress>#{credentials[:mac_id]}</HardwareAddress></DeviceDetails>" \
