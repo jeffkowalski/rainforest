@@ -102,7 +102,7 @@ class Rainforest < Thor
                         '  <Components><All>Y</All></Components>' \
                         '</Command>'
       end
-      @logger.info response
+      @logger.debug response
       doc = Nokogiri.XML response
       demand_timestamp = (doc.at '//Device/DeviceDetails/LastContact')&.content&.hex
       demand = (doc.at '//Device/Components/Component/Variables/Variable//Name[contains(text(), "zigbee:InstantaneousDemand")]/following-sibling::Value')&.content&.to_f
@@ -219,6 +219,12 @@ class Rainforest < Thor
         timestamp: Chronic.parse(finish).utc.to_i
       }
       influxdb.write_point(next_phase, data) unless options[:dry_run]
+    rescue Errno::EHOSTUNREACH, RestClient::ServiceUnavailable, SocketError => e
+      if Time.now.utc.hour == 10 && (6..10).cover?(Time.now.utc.min)
+        @logger.info 'inaccessible due to update check 10:06-10:10 GMT'
+      else
+        @logger.error e
+      end
     rescue StandardError => e
       @logger.error e
     end
