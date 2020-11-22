@@ -220,8 +220,8 @@ class Rainforest < Thor
       }
       influxdb.write_point(next_phase, data) unless options[:dry_run]
     rescue Errno::EHOSTUNREACH, RestClient::ServiceUnavailable, SocketError => e
-      if Time.now.utc.hour == 10 && (6..10).cover?(Time.now.utc.min)
-        @logger.info 'inaccessible due to update check 10:06-10:10 GMT'
+      if Time.now.utc.hour == 10 && (5..15).cover?(Time.now.utc.min)
+        @logger.info 'inaccessible due to update check 10:05-10:15 GMT'
       else
         @logger.error e
       end
