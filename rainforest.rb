@@ -41,7 +41,8 @@ class Rainforest < RecorderBotBase
     def main
       credentials = load_credentials
 
-      response = with_rescue([Errno::EHOSTUNREACH, RestClient::ServiceUnavailable, SocketError], @logger) do |_try|
+      soft_faults = [Errno::EHOSTUNREACH, RestClient::RequestTimeout, RestClient::ServiceUnavailable, SocketError]
+      response = with_rescue(soft_faults, @logger) do |_try|
         RestClient.post "http://#{credentials[:username]}:#{credentials[:password]}@#{credentials[:ip_address]}/cgi-bin/post_manager",
                         '<Command>' \
                         "  <Name>device_query</Name><DeviceDetails><HardwareAddress>#{credentials[:mac_id]}</HardwareAddress></DeviceDetails>" \
@@ -155,7 +156,7 @@ class Rainforest < RecorderBotBase
                   timestamp: change_over })
 
       influxdb.write_points(data) unless options[:dry_run]
-    rescue Errno::EHOSTUNREACH, RestClient::ServiceUnavailable, SocketError
+    rescue soft_faults
       raise unless Time.now.utc.hour == 10 && (5..15).cover?(Time.now.utc.min)
 
       @logger.info 'inaccessible due to update check 10:05-10:15 GMT'
