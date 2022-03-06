@@ -156,7 +156,7 @@ class Rainforest < RecorderBotBase
                   timestamp: change_over })
 
       influxdb.write_points(data) unless options[:dry_run]
-    rescue soft_faults
+    rescue *soft_faults
       raise unless Time.now.utc.hour == 10 && (5..15).cover?(Time.now.utc.min)
 
       @logger.info 'inaccessible due to update check 10:05-10:15 GMT'
