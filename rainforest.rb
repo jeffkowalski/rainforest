@@ -41,7 +41,7 @@ class Rainforest < RecorderBotBase
     def main
       credentials = load_credentials
 
-      soft_faults = [Errno::EHOSTUNREACH, RestClient::RequestTimeout, RestClient::ServiceUnavailable, SocketError]
+      soft_faults = [Errno::ECONNRESET, Errno::EHOSTUNREACH, RestClient::RequestTimeout, RestClient::ServiceUnavailable, SocketError]
       response = with_rescue(soft_faults, @logger) do |_try|
         RestClient.post "http://#{credentials[:username]}:#{credentials[:password]}@#{credentials[:ip_address]}/cgi-bin/post_manager",
                         '<Command>' \
