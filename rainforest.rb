@@ -64,85 +64,33 @@ class Rainforest < RecorderBotBase
       @logger.debug data
 
       # calculate and record current and next time-of-use phases
-      today = Date.today
-      yesterday = today - 1
-      tomorrow = today + 1
       hour = Time.now.hour
 
-      if today.weekend_or_holiday?
-        # weekend
-        if hour < 15 # before 3pm
-          # [:off_peak, "3pm", :peak]
-          start = if yesterday.weekend_or_holiday?
-                    'yesterday 7pm'
-                  else
-                    'yesterday 11pm'
-                  end
-          phase = 'off_peak'
-          finish = '3pm'
-          next_phase = 'peak'
-        elsif hour < 19 # from 3pm to 7pm
-          # [:peak, "7pm", :off_peak]
-          start = '3pm'
-          phase = 'peak'
-          finish = '7pm'
-          next_phase = 'off_peak'
-        else # 7pm afterward
-          start = '7pm'
-          phase = 'off_peak'
-          if tomorrow.weekend_or_holiday?
-            # [:off_peak, "tomorrow 3pm", :peak]
-            finish = 'tomorrow 3pm'
-            next_phase = 'peak'
-          else
-            # [:off_peak, "tomorrow 7am", :partial_peak]
-            finish = 'tomorrow 7am'
-            next_phase = 'partial_peak'
-          end
-        end
-      else
-        # today is not a weekend or holiday
-        if hour < 7 # before 7am
-          # [:off_peak, "7am", :partial_peak]
-          start = if yesterday.weekend_or_holiday?
-                    'yesterday 7pm'
-                  else
-                    'yesterday 11pm'
-                  end
-          phase = 'off_peak'
-          finish = '7am'
-          next_phase = 'partial_peak'
-        elsif hour < 14 # from 7am to 2pm
-          # [:partial_peak, "2pm", :peak]
-          start = '7am'
-          phase = 'partial_peak'
-          finish = '2pm'
-          next_phase = 'peak'
-        elsif hour < 21 # from 2pm to 9pm
-          # [:peak, "9pm", :partial_peak]
-          start = '2pm'
-          phase = 'peak'
-          finish = '9pm'
-          next_phase = 'partial_peak'
-        elsif hour < 23 # from 9pm to 11pm
-          # [:partial_peak, "11pm", :off_peak]
-          start = '9pm'
-          phase = 'partial_peak'
-          finish = '11pm'
-          next_phase = 'off_peak'
-        else # 11pm afterward
-          start = '11pm'
-          phase = 'off_peak'
-          if tomorrow.weekend_or_holiday?
-            # [:off_peak, "tomorrow 3pm", :peak]
-            finish = 'tomorrow 3pm'
-            next_phase = 'peak'
-          else
-            # [:off_peak, "tomorrow 7am", :partial_peak]
-            finish = 'tomorrow 7am'
-            next_phase = 'partial_peak'
-          end
-        end
+      # today is not a weekend or holiday
+      if hour < 15 # before 3pm
+        # [:off_peak, "3pm", :partial_peak]
+        start = '12am'
+        phase = 'off_peak'
+        finish = '3pm'
+        next_phase = 'partial_peak'
+      elsif hour < 16 # from 3pm to 4pm
+        # [:partial_peak, "4pm", :peak]
+        start = '3pm'
+        phase = 'partial_peak'
+        finish = '4pm'
+        next_phase = 'peak'
+      elsif hour < 21 # from 4pm to 9pm
+        # [:peak, "9pm", :partial_peak]
+        start = '4pm'
+        phase = 'peak'
+        finish = '9pm'
+        next_phase = 'partial_peak'
+      else # hour <= 23 # from 9pm to 12am
+        # [:partial_peak, "12am", :off_peak]
+        start = '9pm'
+        phase = 'partial_peak'
+        finish = '12am'
+        next_phase = 'off_peak'
       end
 
       @logger.info "start: #{start}, #{phase}, finish: #{finish}, #{next_phase}"
