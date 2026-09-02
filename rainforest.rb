@@ -54,7 +54,7 @@ class Rainforest < RecorderBotBase
       demand = (doc.at '//Device/Components/Component/Variables/Variable//Name[contains(text(), "zigbee:InstantaneousDemand")]/following-sibling::Value')&.content&.to_f
       raise RequiredFieldError if demand.nil? || demand_timestamp.nil?
 
-      influxdb = InfluxDB::Client.new 'rainforest'
+      influxdb = new_influxdb_client 'rainforest'
 
       # record recent demand
       data = [{ series: 'demand',
